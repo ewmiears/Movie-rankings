@@ -7,7 +7,6 @@ import sys
 import itertools
 import aiohttp
 from aiohttp import ClientSession
-import matplotlib.pyplot as plt
 
 df = pd.DataFrame(columns=['url', 'rank', 'title'])
 
@@ -71,6 +70,8 @@ async def parse(url: str, session: ClientSession, **kwargs) -> list:
             for link in soup.find_all('h2'):
                 rank, title = link.contents[0].split('.', 1)
                 title = title.strip()[:-7]  # Strips off the year
+                if title == 'Seven':
+                    title = 'Se7en'
                 found.append([url, int(rank), title])
             return found
         elif 'www.ranker.com' in url:
@@ -84,7 +85,12 @@ async def parse(url: str, session: ClientSession, **kwargs) -> list:
                 if TRAIL_YR_RE.search(link['content']):
                     t.append(TRAIL_YR_RE.search(link['content']).group(1).strip())
                 else:
-                    t.append(link['content'])
+                    if link['content'] == 'Star Wars':
+                        t.append('Star Wars: Episode IV — A New Hope')
+                    elif link['content'] == 'Indiana Jones and the Raiders of the Lost Ark':
+                        t.append('Raiders of the Lost Ark')
+                    else:
+                        t.append(link['content'])
             t = t[2:]  # The first two are not rankings
             return list(zip(list(itertools.repeat(url, len(r))), r, t))
         elif 'www.imdb.com' in url:
@@ -124,21 +130,24 @@ if __name__ == "__main__":
     here = pathlib.Path(__file__).parent
 
     asyncio.run(crawl_and_parse(urls=urls))
-    # Operations dealing with numbers need to have the rank cast as an int
+    # Operations dealing with numbers need to have the rank converted to int
     df['rank'] = pd.to_numeric(df['rank'], errors='coerce').fillna(0).astype(int)
     df['title_comp'] = df['title']
     df = df.replace({'title_comp': r'[^a-zA-Z0-9 ]'}, {'title_comp': ''}, regex=True)
     df = df.replace({'title_comp': r'\s{2,}'}, {'title_comp': ' '}, regex=True)
     df['title_comp'] = df['title_comp'].str.lower()
-    print(df.groupby(['title_comp'])['rank'].sum().sort_values().head(10).rank(method='dense'))
-    print(df.groupby(['title_comp'])['rank'].mean().sort_values().head(10).rank(method='dense'))
+    # Remove records where title was not in all lists - yes, this is controversial
+    df = df.groupby('title_comp').filter(lambda x: len(x) == len(urls))
+    print('Aggregated movie rankings by sum:')
+    grouping = df.groupby(['title_comp'])
+    #for r, (name, group) in enumerate(grouping, 1):
+    #    print('{0}. {1} \n{2}'.format(r, name, group))
+    #for r, name in enumerate(df.groupby(['title_comp'])['rank'].sum().sort_values().head(10), 1):
+    #    print('{0}. {1}'.format(r, name))
+    print(df.groupby(['title_comp'])['rank'].sum().sort_values().head(10))
+    #print(df.groupby(['title_comp'])['rank'].sum().sort_values().head(10).rank(method='dense'))
+    print('\nAggregated movie rankings by average rank:')
 
-    # makes the plot and assign it to a variable
-    df_open = df.groupby(['title_comp'])['rank'].mean().sort_values().head(10).plot(kind='bar',
-                                                                         x='title_comp', title="Movie Rankings by sum")
-    df_open.set(xlabel='Title', ylabel='Rank')
-    # changes the size of the graph
-    fig = df_open.get_figure()
-    fig.set_size_inches(13.5, 9)
-    plt.show()
+    #print(df.groupby(['title_comp'])['rank'].mean().sort_values().head(10).rank(method='dense'))
+    print(df.groupby(['title_comp'])['rank'].mean().sort_values().head(10))
 
