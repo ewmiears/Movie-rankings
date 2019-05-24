@@ -4,6 +4,7 @@ import asyncio
 import logging
 import re
 import sys
+import time
 import itertools
 import aiohttp
 from aiohttp import ClientSession
@@ -113,7 +114,7 @@ async def add_to_df(url: str, **kwargs) -> None:
     df = df.append(pd.DataFrame(res, columns=['url', 'rank', 'title']), ignore_index=True)
 
 async def crawl_and_parse(urls: set, **kwargs) -> None:
-    """Crawl & write concurrently to `file` for multiple `urls`."""
+    """Crawl & parse concurrently to dataframe for multiple `urls`."""
     async with ClientSession() as session:
         tasks = []
         for url in urls:
@@ -128,8 +129,11 @@ if __name__ == "__main__":
 
     assert sys.version_info >= (3, 7), "Script requires Python 3.7+."
     here = pathlib.Path(__file__).parent
-
+    start = time.perf_counter()
     asyncio.run(crawl_and_parse(urls=urls))
+    elapsed = time.perf_counter() - start
+    print(f"Async portion completed in {elapsed:0.5f} seconds.")
+
     # Operations dealing with numbers need to have the rank converted to int
     df['rank'] = pd.to_numeric(df['rank'], errors='coerce').fillna(0).astype(int)
     df['title_comp'] = df['title']
