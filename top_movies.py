@@ -123,6 +123,23 @@ async def crawl_and_parse(urls: set, **kwargs) -> None:
             )
         await asyncio.gather(*tasks)
 
+def print_lists():
+    global df
+    # Operations dealing with numbers need to have the rank converted to int
+    df['rank'] = pd.to_numeric(df['rank'], errors='coerce').fillna(0).astype(int)
+    df['title_comp'] = df['title']
+    df = df.replace({'title_comp': r'[^a-zA-Z0-9 ]'}, {'title_comp': ''}, regex=True)
+    df = df.replace({'title_comp': r'\s{2,}'}, {'title_comp': ' '}, regex=True)
+    df['title_comp'] = df['title_comp'].str.lower()
+    # Remove records where title was not in all lists - yes, this is controversial
+    df = df.groupby('title_comp').filter(lambda x: len(x) == len(urls))
+
+    print('Aggregated movie rankings by sum:')
+    print(df.groupby(['title_comp'])['rank'].sum().sort_values().head(10))
+    print()
+    print('Aggregated movie rankings by average rank:')
+    print(df.groupby(['title_comp'])['rank'].mean().sort_values().head(10))
+
 if __name__ == "__main__":
     import pathlib
     import sys
@@ -133,25 +150,6 @@ if __name__ == "__main__":
     asyncio.run(crawl_and_parse(urls=urls))
     elapsed = time.perf_counter() - start
     print(f"Async portion completed in {elapsed:0.5f} seconds.")
+    print_lists()
 
-    # Operations dealing with numbers need to have the rank converted to int
-    df['rank'] = pd.to_numeric(df['rank'], errors='coerce').fillna(0).astype(int)
-    df['title_comp'] = df['title']
-    df = df.replace({'title_comp': r'[^a-zA-Z0-9 ]'}, {'title_comp': ''}, regex=True)
-    df = df.replace({'title_comp': r'\s{2,}'}, {'title_comp': ' '}, regex=True)
-    df['title_comp'] = df['title_comp'].str.lower()
-    # Remove records where title was not in all lists - yes, this is controversial
-    df = df.groupby('title_comp').filter(lambda x: len(x) == len(urls))
-    print('Aggregated movie rankings by sum:')
-    grouping = df.groupby(['title_comp'])
-    #for r, (name, group) in enumerate(grouping, 1):
-    #    print('{0}. {1} \n{2}'.format(r, name, group))
-    #for r, name in enumerate(df.groupby(['title_comp'])['rank'].sum().sort_values().head(10), 1):
-    #    print('{0}. {1}'.format(r, name))
-    print(df.groupby(['title_comp'])['rank'].sum().sort_values().head(10))
-    #print(df.groupby(['title_comp'])['rank'].sum().sort_values().head(10).rank(method='dense'))
-    print('\nAggregated movie rankings by average rank:')
-
-    #print(df.groupby(['title_comp'])['rank'].mean().sort_values().head(10).rank(method='dense'))
-    print(df.groupby(['title_comp'])['rank'].mean().sort_values().head(10))
 
