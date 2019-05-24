@@ -1,12 +1,12 @@
-from bs4 import BeautifulSoup
-import pandas as pd
-import logging
-import re
 import sys
+import re
 import time
 import itertools
+import logging
 import requests
+import pandas as pd
 from requests.exceptions import HTTPError
+from bs4 import BeautifulSoup
 
 df = pd.DataFrame(columns=['url', 'rank', 'title'])
 
@@ -25,10 +25,9 @@ logging.getLogger("chardet.charsetprober").disabled = True
 
 TRAIL_YR_RE = re.compile(r'^(.*)\s*\(\d{4}\)\s*$')
 
+
 def fetch_html(url: str, **kwargs) -> str:
     """GET request wrapper to fetch page HTML.
-
-    kwargs are passed to `session.request()`.
     """
 
     resp = requests.get(url)
@@ -36,6 +35,7 @@ def fetch_html(url: str, **kwargs) -> str:
     logger.info("Got response [%s] for URL: %s", resp.status_code, url)
     html = resp.content
     return html
+
 
 def parse(url: str, **kwargs) -> list:
     """Grab movie names and rankings from different sites
@@ -48,7 +48,7 @@ def parse(url: str, **kwargs) -> list:
         html = fetch_html(url)
     except HTTPError as e:
         logger.error(
-            "exception for %s [%s]: %s",
+            "Exception for %s [%s]: %s",
             url,
             getattr(e, "status", None),
             getattr(e, "message", None),
@@ -56,7 +56,7 @@ def parse(url: str, **kwargs) -> list:
         return found
     except Exception as e:
         logger.exception(
-            "Non-aiohttp exception occurred:  %s", getattr(e, "__dict__", {})
+            "Exception occurred:  %s", getattr(e, "__dict__", {})
         )
         return found
     else:
@@ -98,23 +98,23 @@ def parse(url: str, **kwargs) -> list:
                 found.append([url, int(rank), title])
             return found
 
+
 def add_to_df(url: str, **kwargs) -> None:
     """Append the results of each url to a dataframe"""
     global df
     res = parse(url=url, **kwargs)
     if not res:
         return None
-
-    #for url, rank, title in res:
-    #    print('{0} <{1}> <{2}>'.format(url, rank, title))
     df = df.append(pd.DataFrame(res, columns=['url', 'rank', 'title']), ignore_index=True)
+
 
 def crawl_and_parse(urls: set, **kwargs) -> None:
     """Crawl & parse multiple `urls`."""
     for url in urls:
         add_to_df(url=url, **kwargs)
 
-def print_lists():
+
+def print_lists() -> None:
     global df
     # Operations dealing with numbers need to have the rank converted to int
     df['rank'] = pd.to_numeric(df['rank'], errors='coerce').fillna(0).astype(int)
@@ -130,6 +130,8 @@ def print_lists():
     print()
     print('Aggregated movie rankings by average rank:')
     print(df.groupby(['title_comp'])['rank'].mean().sort_values().head(10))
+    return
+
 
 if __name__ == "__main__":
     import pathlib

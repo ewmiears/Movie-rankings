@@ -1,13 +1,13 @@
-from bs4 import BeautifulSoup
-import pandas as pd
-import asyncio
-import logging
-import re
 import sys
+import re
 import time
 import itertools
+import logging
 import aiohttp
+import asyncio
+import pandas as pd
 from aiohttp import ClientSession
+from bs4 import BeautifulSoup
 
 df = pd.DataFrame(columns=['url', 'rank', 'title'])
 
@@ -26,6 +26,7 @@ logging.getLogger("chardet.charsetprober").disabled = True
 
 TRAIL_YR_RE = re.compile(r'^(.*)\s*\(\d{4}\)\s*$')
 
+
 async def fetch_html(url: str, session: ClientSession, **kwargs) -> str:
     """GET request wrapper to fetch page HTML.
 
@@ -37,6 +38,7 @@ async def fetch_html(url: str, session: ClientSession, **kwargs) -> str:
     logger.info("Got response [%s] for URL: %s", resp.status, url)
     html = await resp.text()
     return html
+
 
 async def parse(url: str, session: ClientSession, **kwargs) -> list:
     """Grab movie names and rankings from different sites
@@ -102,16 +104,15 @@ async def parse(url: str, session: ClientSession, **kwargs) -> list:
                 found.append([url, int(rank), title])
             return found
 
+
 async def add_to_df(url: str, **kwargs) -> None:
     """Append the results of each url to a dataframe"""
     global df
     res = await parse(url=url, **kwargs)
     if not res:
         return None
-
-    #for url, rank, title in res:
-    #    print('{0} <{1}> <{2}>'.format(url, rank, title))
     df = df.append(pd.DataFrame(res, columns=['url', 'rank', 'title']), ignore_index=True)
+
 
 async def crawl_and_parse(urls: set, **kwargs) -> None:
     """Crawl & parse concurrently to dataframe for multiple `urls`."""
@@ -123,7 +124,8 @@ async def crawl_and_parse(urls: set, **kwargs) -> None:
             )
         await asyncio.gather(*tasks)
 
-def print_lists():
+
+def print_lists() -> None:
     global df
     # Operations dealing with numbers need to have the rank converted to int
     df['rank'] = pd.to_numeric(df['rank'], errors='coerce').fillna(0).astype(int)
@@ -139,6 +141,8 @@ def print_lists():
     print()
     print('Aggregated movie rankings by average rank:')
     print(df.groupby(['title_comp'])['rank'].mean().sort_values().head(10))
+    return
+
 
 if __name__ == "__main__":
     import pathlib
@@ -151,5 +155,3 @@ if __name__ == "__main__":
     elapsed = time.perf_counter() - start
     print(f"Async portion completed in {elapsed:0.5f} seconds.")
     print_lists()
-
-
